@@ -1,0 +1,7 @@
+menu "Sensor Configuration"
+    config SENSOR_ENABLE
+        bool "Enable Sensor"
+        default y
+        help
+            Виберіть це, щоб активувати роботу датчика.
+endmenu
