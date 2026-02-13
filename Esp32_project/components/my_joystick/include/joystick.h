@@ -13,4 +13,4 @@ typedef struct {
     float brightness; 
 } led_state_t;
 
-led_state_t current_led = {0, 0, 0, 1.0};
+extern led_state_t current_led;
