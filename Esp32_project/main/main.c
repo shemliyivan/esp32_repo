@@ -1,10 +1,17 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "led_strip.h"
+#include "../components/my_led/include/led.h"
+#include "../components/my_joystick/include/joystick.h"
+#include "iot_button.h"
 
 TaskHandle_t task1Handler = NULL;
 TaskHandle_t task2Handler = NULL;
 TaskHandle_t taskWatcherHandler = NULL;
+
+#define BLINK_BRIGHTNESS 20
+#define BLINK_PERIOD_MS 500
 
 void Task1(void* arg){
     int counter = 0;
@@ -41,4 +48,9 @@ void app_main(void)
     xTaskCreate(Task1, "Task 1", 2048, NULL, 1, &task1Handler);
     xTaskCreate(Task2, "Task 2", 2048, NULL, 1, &task2Handler);
     xTaskCreate(TaskWatcher, "Task Watcher", 8192, NULL, 1, &taskWatcherHandler);
+
+    led_strip_handle_t strip = configure_rgb_led();
+    bool led_on = false;
+
+    
 }
