@@ -72,6 +72,7 @@ void app_main(void)
         if(current_led.brightness > 1.0f) current_led.brightness = 1.0f;
         if(current_led.brightness < 0.0f) current_led.brightness = 0.0f;
 
+        // Остаточні значення RGB стрічки
         uint8_t final_r = (uint8_t)(current_led.r * current_led.brightness);
         uint8_t final_g = (uint8_t)(current_led.g * current_led.brightness);
         uint8_t final_b = (uint8_t)(current_led.b * current_led.brightness);
