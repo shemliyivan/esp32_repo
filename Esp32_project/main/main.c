@@ -1,10 +1,17 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "led_strip.h"
+#include "../components/my_led/include/led.h"
+#include "../components/my_joystick/include/joystick.h"
+#include "iot_button.h"
 
 TaskHandle_t task1Handler = NULL;
 TaskHandle_t task2Handler = NULL;
 TaskHandle_t taskWatcherHandler = NULL;
+
+#define BLINK_BRIGHTNESS 20
+#define BLINK_PERIOD_MS 500
 
 void Task1(void* arg){
     int counter = 0;
@@ -41,4 +48,38 @@ void app_main(void)
     xTaskCreate(Task1, "Task 1", 2048, NULL, 1, &task1Handler);
     xTaskCreate(Task2, "Task 2", 2048, NULL, 1, &task2Handler);
     xTaskCreate(TaskWatcher, "Task Watcher", 8192, NULL, 1, &taskWatcherHandler);
+
+    led_strip_handle_t strip = configure_rgb_led();
+    configure_joystick();
+
+    int joy_x = 0;
+    int joy_y = 0;
+    bool btn_pressed = false;
+
+    while (1) {
+        read_joystick(&joy_x, &joy_y, &btn_pressed);
+
+        if (joy_x < 1300) {
+            current_led.r = 255; current_led.g = 0; current_led.b = 0;
+        } else if (joy_x < 2700) {
+            current_led.r = 0; current_led.g = 255; current_led.b = 0;
+        } else {
+            current_led.r = 0; current_led.g = 0; current_led.b = 255;
+        }
+
+        current_led.brightness = (float)joy_y / 4095.0f;
+        
+        if(current_led.brightness > 1.0f) current_led.brightness = 1.0f;
+        if(current_led.brightness < 0.0f) current_led.brightness = 0.0f;
+
+        // Остаточні значення RGB стрічки
+        uint8_t final_r = (uint8_t)(current_led.r * current_led.brightness);
+        uint8_t final_g = (uint8_t)(current_led.g * current_led.brightness);
+        uint8_t final_b = (uint8_t)(current_led.b * current_led.brightness);
+
+        led_strip_set_pixel(strip, 0, final_r, final_g, final_b);
+        led_strip_refresh(strip);
+
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
 }

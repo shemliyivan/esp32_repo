@@ -13,6 +13,7 @@
     "--query-driver=**",
     "--compile-commands-dir=d:\\Esp32\\esp32_repo\\Esp32_project\\build"
   ],
-  "idf.portWin": "COM7",
-  "idf.flashType": "UART"
+  "idf.portWin": "COM8",
+  "idf.flashType": "UART",
+  "C_Cpp.errorSquiggles": "enabled"
 }
