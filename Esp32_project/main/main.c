@@ -1,85 +1,77 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "led_strip.h"
-#include "../components/my_led/include/led.h"
-#include "../components/my_joystick/include/joystick.h"
-#include "iot_button.h"
+#include "nvs_flash.h"
+#include "esp_log.h"
 
-TaskHandle_t task1Handler = NULL;
-TaskHandle_t task2Handler = NULL;
-TaskHandle_t taskWatcherHandler = NULL;
+#include "led.h"
+#include "joystick.h"
+#include "my_wifi.h"
 
-#define BLINK_BRIGHTNESS 20
-#define BLINK_PERIOD_MS 500
+static const char *TAG = "MAIN";
 
-void Task1(void* arg){
-    int counter = 0;
-    for(int i = 0; i < 10; ++i){
-        printf("Task 1 is runnning, counter = %d\n", counter++);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+// Для зручної перевірки стану WIFI - та виставлення відповідного значення на Led
+void led_logic_task(void *arg) {
+    led_strip_handle_t strip = (led_strip_handle_t)arg;
+    bool blink = false;
+    
+    while (1) {
+        uint8_t r=0, g=0, b=0;
+        
+        switch (g_wifi_state) {
+            case WIFI_STATE_OFF:             r=20; g=20; b=20; break;
+            case WIFI_STATE_STA_CONNECTING:  r=50; g=50; b=0;  break;
+            case WIFI_STATE_STA_ERROR:       r=50; g=0;  b=0;  break; 
+            case WIFI_STATE_STA_GOT_IP:      if(blink) g=50;   break;
+            case WIFI_STATE_INTERNET_OK:     g=50;             break;
+            case WIFI_STATE_AP_STARTED:      if(blink) b=50;   break;
+            case WIFI_STATE_AP_CONNECTED:    b=50;             break;
+        }
+
+        led_strip_set_pixel(strip, 0, r, g, b);
+        led_strip_refresh(strip);
+        
+        blink = !blink;
+        vTaskDelay(pdMS_TO_TICKS(500)); 
     }
-
-    vTaskDelete(NULL);
-}
-
-void Task2(void* arg){
-    int counter = 0;
-    for(int i = 0; i < 10; ++i){
-        printf("Task 2 is runnning, counter = %d\n", counter++);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-    vTaskDelete(NULL);
-}
-
-void TaskWatcher(void* arg){
-    for(int i = 0; i < 10; ++i){
-        char buffer[1024];
-        vTaskList(buffer);
-        printf("Task Name\tStatus\tPrio\tStack\tTask#\n%s\n", buffer);
-        vTaskDelay(pdMS_TO_TICKS(5000));
-    }
-
-    vTaskDelete(NULL);
 }
 
 void app_main(void)
 {
-    xTaskCreate(Task1, "Task 1", 2048, NULL, 1, &task1Handler);
-    xTaskCreate(Task2, "Task 2", 2048, NULL, 1, &task2Handler);
-    xTaskCreate(TaskWatcher, "Task Watcher", 8192, NULL, 1, &taskWatcherHandler);
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        nvs_flash_erase();
+        nvs_flash_init();
+    }
 
     led_strip_handle_t strip = configure_rgb_led();
     configure_joystick();
+    wifi_init_global();
 
-    int joy_x = 0;
-    int joy_y = 0;
-    bool btn_pressed = false;
+    xTaskCreate(led_logic_task, "LED_Logic", 2048, (void*)strip, 5, NULL);
+
+    ESP_LOGI(TAG, "System Ready. Joystick: Left=AP, Right=STA");
+
+    int x, y, mode = 0; // 0=None, 1=AP, 2=STA
+    bool btn;
 
     while (1) {
-        read_joystick(&joy_x, &joy_y, &btn_pressed);
+        read_joystick(&x, &y, &btn);
 
-        if (joy_x < 1300) {
-            current_led.r = 255; current_led.g = 0; current_led.b = 0;
-        } else if (joy_x < 2700) {
-            current_led.r = 0; current_led.g = 255; current_led.b = 0;
-        } else {
-            current_led.r = 0; current_led.g = 0; current_led.b = 255;
+        if (x < 1000 && mode != 1) {
+            ESP_LOGI(TAG, "Switching to AP Mode");
+            wifi_start_ap();
+            mode = 1;
+            vTaskDelay(pdMS_TO_TICKS(1000)); 
         }
 
-        current_led.brightness = (float)joy_y / 4095.0f;
-        
-        if(current_led.brightness > 1.0f) current_led.brightness = 1.0f;
-        if(current_led.brightness < 0.0f) current_led.brightness = 0.0f;
+        else if (x > 3000 && mode != 2) {
+            ESP_LOGI(TAG, "Switching to STA Mode");
+            wifi_start_sta();
+            mode = 2;
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
 
-        // Остаточні значення RGB стрічки
-        uint8_t final_r = (uint8_t)(current_led.r * current_led.brightness);
-        uint8_t final_g = (uint8_t)(current_led.g * current_led.brightness);
-        uint8_t final_b = (uint8_t)(current_led.b * current_led.brightness);
-
-        led_strip_set_pixel(strip, 0, final_r, final_g, final_b);
-        led_strip_refresh(strip);
-
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
