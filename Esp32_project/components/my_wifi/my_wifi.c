@@ -13,8 +13,8 @@
 
 static const char *TAG = "MY_WIFI";
 
-#define STA_SSID "SSID"
-#define STA_PASS "Pass"
+#define STA_SSID "iphone Іван"
+#define STA_PASS "12345678910"
 #define AP_SSID  "ESP32_CONFIG_AP"
 #define AP_PASS  "12345678"
 #define MAX_RETRY 5
@@ -133,6 +133,10 @@ void wifi_start_sta(void) {
             .ssid = STA_SSID,
             .password = STA_PASS,
             .threshold.authmode = WIFI_AUTH_WPA2_PSK,
+            .pmf_cfg = {
+                .capable = true,
+                .required = false
+            }
         },
     };
     esp_wifi_set_config(WIFI_IF_STA, &conf);
