@@ -9,6 +9,7 @@
 #include "my_wifi.h"
 #include "mqtt_component.h"
 #include "led_types.h"
+#include "bluetooth_component.h"
 
 static const char *TAG = "MAIN";
 
@@ -80,6 +81,13 @@ void app_main(void)
             g_led_mode = LED_MODE_WIFI_STATUS;
             mqtt_component_start();
             vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+
+        else if(y > 3000 && mode != 3){
+            ESP_LOGI(TAG, "Switching to bluetooth mode");
+            bluetooth_component_init();
+            mode = 3;
+            vTaskDelay(pdMS_TO_TICKS(2000));
         }
 
         vTaskDelay(pdMS_TO_TICKS(100));

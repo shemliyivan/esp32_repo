@@ -13,8 +13,8 @@
 
 static const char *TAG = "MY_WIFI";
 
-#define STA_SSID "iphone Іван"
-#define STA_PASS "12345678910"
+#define STA_SSID "EE-IoT"
+#define STA_PASS "ee1234ee"
 #define AP_SSID  "ESP32_CONFIG_AP"
 #define AP_PASS  "12345678"
 #define MAX_RETRY 5

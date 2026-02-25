@@ -99,6 +99,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             led_strip_set_pixel(strip, 0, r, g, b);
             led_strip_refresh(strip);
             ESP_LOGI(TAG_MQTT, "Color set to: R:%d G:%d B:%d", r, g, b);
+            
         }
 
         cJSON_Delete(root);
