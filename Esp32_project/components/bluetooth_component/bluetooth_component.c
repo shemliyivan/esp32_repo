@@ -10,11 +10,15 @@
 #include "services/bas/ble_svc_bas.h" 
 #include "services/dis/ble_svc_dis.h" 
 
+#include "esp_bt.h"
+
 #include "led_types.h" 
 #include "led_strip.h"
 
 static const char *TAG_BLE = "BLE_COMP";
 static uint8_t ble_addr_type;
+extern uint16_t sensor_char_handle;
+extern char ble_telemetry_data[256];
 
 extern led_strip_handle_t strip;
 extern led_mode_t g_led_mode;
@@ -69,6 +73,15 @@ static int gatt_svr_chr_access_led(uint16_t conn_handle, uint16_t attr_handle,
     return BLE_ATT_ERR_UNLIKELY;
 }
 
+static int gatt_svr_access_cb(uint16_t conn_handle, uint16_t attr_handle,
+                             struct ble_gatt_access_ctxt *ctxt, void *arg)
+{
+    if (ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR) {
+        return os_mbuf_append(ctxt->om, ble_telemetry_data, strlen(ble_telemetry_data));
+    }
+    return 0;
+}
+
 // Таблиця GATT сервісів
 static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
     {
@@ -107,6 +120,19 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
             }, 
             { 0 } 
         },
+    },
+
+    {
+        .type = BLE_GATT_SVC_TYPE_PRIMARY,
+        .uuid = BLE_UUID16_DECLARE(0x181A),
+        .characteristics = (struct ble_gatt_chr_def[]) { {
+            .uuid = BLE_UUID16_DECLARE(0x2A6E),
+            .access_cb = gatt_svr_access_cb,
+            .flags = BLE_GATT_CHR_F_NOTIFY | BLE_GATT_CHR_F_READ,
+            .val_handle = &sensor_char_handle,
+        }, {
+            0, 
+        } },
     },
     { 0 },
 };
@@ -166,4 +192,23 @@ void bluetooth_component_init(void)
 
     ble_hs_cfg.sync_cb = ble_app_on_sync;
     nimble_port_freertos_init(ble_host_task);
+}
+
+void bluetooth_component_deinit(void)
+{
+    ble_gap_adv_stop();
+
+    int rc = nimble_port_stop();
+    if (rc != 0) {
+        ESP_LOGE(TAG_BLE, "Failed to stop NimBLE port, rc=%d", rc);
+    }
+
+    nimble_port_freertos_deinit();
+
+    nimble_port_deinit();
+    
+    esp_bt_controller_disable();
+    esp_bt_controller_deinit();
+
+    ESP_LOGI(TAG_BLE, "Bluetooth fully deinitialized");
 }

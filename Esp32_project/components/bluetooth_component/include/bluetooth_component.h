@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 void bluetooth_component_init(void);
+void bluetooth_component_deinit(void);
 
 #ifdef __cplusplus
 }

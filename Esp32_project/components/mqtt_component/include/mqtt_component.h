@@ -21,7 +21,15 @@
 #include "led_strip.h"
 #include "led_types.h"
 
+//Drivers
+#include "aht20_driver.h"
+#include "bmp280_driver.h"
+#include "lsm6ds3_driver.h"
+
 static const char *TAG_MQTT = "mqtts_example";
+
+esp_mqtt_client_handle_t g_mqtt_client = NULL;
+bool g_mqtt_connected = false;
 
 #if CONFIG_EXAMPLE_BROKER_CERTIFICATE_OVERRIDDEN
 static const char cert_override_pem[] =
@@ -43,21 +51,23 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 {
     ESP_LOGD(TAG_MQTT, "Event dispatched from event loop base=%s, event_id=%" PRIi32, base, event_id);
     esp_mqtt_event_handle_t event = event_data;
-    esp_mqtt_client_handle_t client = event->client;
+    g_mqtt_client = event->client;
     int msg_id = 0;
     switch ((esp_mqtt_event_id_t)event_id) {
     case MQTT_EVENT_CONNECTED:
+        g_mqtt_connected = true;
         ESP_LOGI(TAG_MQTT, "MQTT_EVENT_CONNECTED");
     
-        msg_id = esp_mqtt_client_subscribe(client, "esp-lection/cmd", 0);
+        msg_id = esp_mqtt_client_subscribe(g_mqtt_client, "esp-lection/cmd", 0);
         if (msg_id < 0) {
             ESP_LOGE(TAG_MQTT, "Failed to send subscribe request");
         } else {
             ESP_LOGI(TAG_MQTT, "Subscribe request sent, msg_id=%d", msg_id);
         }
-        esp_mqtt_client_publish(client, "esp-lection/status", "Hello, I'm Ivan, and Esp32 connected", 0, 1, 0);
+        esp_mqtt_client_publish(g_mqtt_client, "esp-lection/status", "Hello, I'm Ivan, and Esp32 connected", 0, 1, 0);
     break;
     case MQTT_EVENT_DISCONNECTED:
+        g_mqtt_connected = false;
         ESP_LOGI(TAG_MQTT, "MQTT_EVENT_DISCONNECTED");
         break;
 
