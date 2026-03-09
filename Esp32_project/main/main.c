@@ -4,6 +4,7 @@
 #include "nvs_flash.h"
 #include "esp_log.h"
 #include "driver/uart.h"
+#include "driver/ledc.h"
 
 #include "host/ble_hs.h"
 #include "host/ble_gatt.h"
@@ -20,6 +21,9 @@
 #include "aht20_driver.h"
 #include "bmp280_driver.h"
 #include "lsm6ds3_driver.h"
+#include "my_servo.h"
+#include "stepper.h"
+#include "iot_servo.h"
 
 static const char *TAG = "MAIN";
 
@@ -128,6 +132,10 @@ void app_main(void)
     bmp280_init();
     lsm6ds3_init();
 
+    // Ініціалізація servo та stepper
+    servo_init();
+    stepper_init();
+
     while (1) {
         read_joystick(&x, &y, &btn);
 
@@ -183,6 +191,6 @@ void app_main(void)
                 xTaskCreate(telemetry_task, "Telemetry task", 4096, (void*)UART_TELEMETRY, 5, &taskTelemertyHandler);
             }
 
-            vTaskDelay(pdMS_TO_TICKS(100));
+            vTaskDelay(pdMS_TO_TICKS(1000));
         }
     }

@@ -5,6 +5,9 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "iot_servo.h"
+#include "stepper.h"
+
 static const char *TAG = "UART_HANDLER";
 
 extern led_strip_handle_t strip;
@@ -30,6 +33,38 @@ static void uart_rx_task(void *arg) {
                 led_strip_refresh(strip);
                 ESP_LOGI(TAG, "LED turned OFF via UART");
             }
+
+            else if (strstr(cmd, "LED:")) {
+                int r, g, b;
+                if (sscanf(cmd, "LED:%d,%d,%d", &r, &g, &b) == 3) {
+                    if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) {
+                        g_led_mode = LED_MODE_MQTT_MANUAL;
+                        led_strip_set_pixel(strip, 0, r, g, b);
+                        led_strip_refresh(strip);
+                        ESP_LOGI(TAG, "LED Color set to R:%d G:%d B:%d via UART", r, g, b);
+                    } else {
+                        ESP_LOGW(TAG, "Invalid RGB values! Must be 0 to 255");
+                    }
+                } else {
+                    ESP_LOGW(TAG, "Wrong format. Use LED:R,G,B (e.g., LED:255,128,0)");
+                }
+            }
+
+            else if (strstr(cmd, "SYNC:")) {
+                float angle = 0;
+                if (sscanf(cmd, "SYNC:%f", &angle) == 1) {
+                    if (angle >= 0 && angle <= 180) {
+                        ESP_LOGI(TAG, "Starting sync movement to %.1f degrees", angle);
+                        
+                        iot_servo_write_angle(LEDC_LOW_SPEED_MODE, 0, angle);
+                        move_stepper_degrees(angle);
+                        
+                        ESP_LOGI(TAG, "Sync movement finished");
+                    } else {
+                        ESP_LOGW(TAG, "Angle %.1f out of range!", angle);
+                    }
+                }
+            }   
         }
     }
     free(data);

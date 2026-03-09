@@ -2,7 +2,7 @@
 #include "spi_bus.h"
 #include "driver/gpio.h"
 
-#define PIN_CS_LSM 10
+#define PIN_CS_LSM 16
 static spi_device_handle_t lsm6_handle;
 
 void lsm6ds3_init(void) {

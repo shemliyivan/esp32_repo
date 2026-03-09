@@ -25,6 +25,8 @@
 #include "aht20_driver.h"
 #include "bmp280_driver.h"
 #include "lsm6ds3_driver.h"
+#include "iot_servo.h"
+#include "stepper.h"
 
 static const char *TAG_MQTT = "mqtts_example";
 
@@ -109,7 +111,22 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             led_strip_set_pixel(strip, 0, r, g, b);
             led_strip_refresh(strip);
             ESP_LOGI(TAG_MQTT, "Color set to: R:%d G:%d B:%d", r, g, b);
-            
+            char msg[64];
+            snprintf(msg, sizeof(msg), "Color set to: %d,%d,%d", r, g, b);
+            esp_mqtt_client_publish(g_mqtt_client, "studio/led/status", msg, 0, 1, 0);
+        }
+
+        cJSON *sync_angle = cJSON_GetObjectItem(root, "angle");
+        if (cJSON_IsNumber(sync_angle)) {
+            float target = (float)sync_angle->valuedouble;
+            if (target >= 0 && target <= 180) {
+                ESP_LOGI(TAG_MQTT, "Starting sync movement to %.1f degrees", target);
+                iot_servo_write_angle(LEDC_LOW_SPEED_MODE, 0, target);
+                move_stepper_degrees(target);
+                ESP_LOGI(TAG_MQTT, "Sync movement finished");
+            } else {
+                ESP_LOGW(TAG_MQTT, "Angle %.1f is out of range (0-180)", target);
+            }
         }
 
         cJSON_Delete(root);

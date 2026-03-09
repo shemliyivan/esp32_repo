@@ -62,6 +62,10 @@ static void check_internet(void) {
 }
 
 static void init_sntp(void) {
+    if (esp_sntp_enabled()) {
+        ESP_LOGI(TAG, "SNTP is already running, skipping initialization");
+        return;
+    }
     esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
     esp_sntp_setservername(0, "pool.ntp.org");
     esp_sntp_init();

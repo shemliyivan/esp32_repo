@@ -15,6 +15,9 @@
 #include "led_types.h" 
 #include "led_strip.h"
 
+#include "iot_servo.h"
+#include "stepper.h"
+
 static const char *TAG_BLE = "BLE_COMP";
 static uint8_t ble_addr_type;
 extern uint16_t sensor_char_handle;
@@ -26,6 +29,7 @@ extern led_mode_t g_led_mode;
 #define CUSTOM_SVC_UUID      0xBB00 
 #define LED_CMD_CHR_UUID     0xBB01 
 #define LED_STATUS_CHR_UUID  0xBB02 
+#define MOTOR_CMD_CHR_UUID   0xBB03  
 
 static int gatt_svr_chr_access_led(uint16_t conn_handle, uint16_t attr_handle,
                                    struct ble_gatt_access_ctxt *ctxt, void *arg)
@@ -54,6 +58,23 @@ static int gatt_svr_chr_access_led(uint16_t conn_handle, uint16_t attr_handle,
                 ESP_LOGI(TAG_BLE, "LED Color set: R:%d G:%d B:%d", data[0], data[1], data[2]);
             }
             led_strip_refresh(strip);
+            return 0;
+        }
+
+        if (ble_uuid_u16(uuid) == MOTOR_CMD_CHR_UUID) {
+            float target_angle = 0;
+            
+            if (len == 1) {
+                target_angle = (float)data[0]; 
+            } else if (len == 4) {
+                memcpy(&target_angle, data, 4);
+            }
+
+            ESP_LOGI(TAG_BLE, "Motor Sync Move to: %.1f via BLE", target_angle);
+            
+            iot_servo_write_angle(LEDC_LOW_SPEED_MODE, 0, target_angle);
+            move_stepper_degrees(target_angle);
+
             return 0;
         }
     }
@@ -133,6 +154,28 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
         }, {
             0, 
         } },
+    },
+    {
+        .type = BLE_GATT_SVC_TYPE_PRIMARY,
+        .uuid = BLE_UUID16_DECLARE(CUSTOM_SVC_UUID),
+        .characteristics = (struct ble_gatt_chr_def[]) { 
+            {
+                .uuid = BLE_UUID16_DECLARE(LED_CMD_CHR_UUID),
+                .access_cb = gatt_svr_chr_access_led,
+                .flags = BLE_GATT_CHR_F_WRITE,
+            }, 
+            {
+                .uuid = BLE_UUID16_DECLARE(MOTOR_CMD_CHR_UUID),
+                .access_cb = gatt_svr_chr_access_led,
+                .flags = BLE_GATT_CHR_F_WRITE,
+            },
+            {
+                .uuid = BLE_UUID16_DECLARE(LED_STATUS_CHR_UUID),
+                .access_cb = gatt_svr_chr_access_led,
+                .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
+            }, 
+            { 0 } 
+        },
     },
     { 0 },
 };
